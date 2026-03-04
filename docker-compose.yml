@@ -1,0 +1,54 @@
+version: '3.3'
+services:
+  # The Database
+  postgres:
+    image: postgres:16
+    container_name: sa_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: stock_alerts
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: sa_redis
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: sa_kafka
+    ports:
+      - "9092:9092"
+      - "9095:9095" # Open the new Minikube port
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # 1. Map the 'INTERNAL' and 'CONTROLLER' names to the PLAINTEXT protocol
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,MINIKUBE:PLAINTEXT
+      # 2. Define the listeners
+      KAFKA_LISTENERS: PLAINTEXT://:9092,INTERNAL://:9094,CONTROLLER://:9093,MINIKUBE://:9095
+      # 3. Advertised listeners:
+      # - PLAINTEXT for your Java app (localhost)
+      # - INTERNAL for Redpanda Console (sa_kafka)
+      # - MINIKUBE: For your K8s Pod (host.minikube.internal)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://sa_kafka:9094,MINIKUBE://host.minikube.internal:9095
+      # 4. KRaft Specifics
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@sa_kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # 5. General Settings
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: kafka-console
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKERS: "sa_kafka:9094" # Use your internal docker kafka name

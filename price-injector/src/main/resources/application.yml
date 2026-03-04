@@ -1,0 +1,42 @@
+micronaut:
+  runtime: netty
+  server:
+    port: 8086
+  application:
+    name: price-ingestor
+  executors:
+    io:
+      virtual: true
+      type: THREAD_PER_TASK
+  metrics:
+    enabled: true
+    binders:
+      web:
+        enabled: false
+    export:
+      prometheus:
+        enabled: true
+        descriptions: true
+        step: PT1M
+  health:
+    monitor:
+      enabled: false
+kafka:
+  bootstrap:
+    servers: ${KAFKA_BOOTSTRAP_SERVERS:`localhost:9092`}
+market:
+  simulator:
+    delay: ${MARKET_SIMULATOR_DELAY:2000}
+endpoints:
+  all:
+    path: /management
+    enabled: true
+  prometheus:
+    enabled: true
+    sensitive: false # Allows Prometheus to scrape without authentication
+  health:
+    enabled: true
+    sensitive: false
+    details-visible: ANONYMOUS # This will let you see WHICH service is DOWN in the logs
+    discovery:
+      enabled: false # Don't let discovery status kill the health check

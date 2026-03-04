@@ -1,0 +1,11 @@
+micronaut:
+  server:
+    port: 8083
+
+redis:
+  uri: ${REDIS_URI:`redis://host.minikube.internal:6379`}
+
+# Optional: Adjust logging for K8s (structured logging/JSON is better for real clusters)
+logger:
+  levels:
+    com.kmoroz.stockalert: DEBUG

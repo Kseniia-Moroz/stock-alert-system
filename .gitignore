@@ -2,38 +2,46 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-.kotlin
+
+### Java/Maven ###
+*.class
+*.log
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+### Micronaut ###
+.micronaut-cli/
+build/
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Visual Studio Code ###
+.vscode/
+.history/
+*.code-workspace
 
 ### Eclipse ###
-.apt_generated
+.settings/
+.project
 .classpath
 .factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+bin/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-### Mac OS ###
+### OS ###
 .DS_Store
+Thumbs.db
+desktop.ini
+
+### Junie ###
+.junie/

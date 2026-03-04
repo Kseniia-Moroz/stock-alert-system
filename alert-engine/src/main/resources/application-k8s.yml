@@ -1,0 +1,4 @@
+# Kubernetes Specific Overrides
+micronaut:
+  server:
+    port: 8082 # Ensure this matches your Service targetPort

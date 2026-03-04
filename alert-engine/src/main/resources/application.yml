@@ -1,0 +1,90 @@
+micronaut:
+  server:
+    port: 8082
+    netty:
+      # Use a small number of physical threads for the network "plumbing"
+      worker:
+        threads: 8
+    context-path: /v1
+  application:
+    name: alert-engine
+  executors:
+    io:
+      virtual: true
+      type: THREAD_PER_TASK
+  openapi:
+    views:
+      swagger-ui.enabled: true
+  router:
+    static-resources:
+      swagger:
+        paths: classpath:META-INF/swagger
+        mapping: /swagger/**
+      swagger-ui:
+        paths: classpath:META-INF/swagger/views/swagger-ui
+        mapping: /swagger-ui/**
+  metrics:
+    enabled: true
+    binders:
+      web:
+        enabled: false
+    export:
+      prometheus:
+        enabled: true
+        descriptions: true
+        step: PT1M
+  health:
+    monitor:
+      enabled: false
+kafka:
+  bootstrap:
+    servers: ${KAFKA_BOOTSTRAP_SERVERS:`localhost:9092`}
+  consumers:
+    alert-engine:
+      redelivery: # If all retries fail, send to 'market-prices-dlt'
+        enabled: true
+        max-attempts: 3
+        destinations:
+          market-prices: market-prices-dlt
+    price-materializer:
+      redelivery: # If all retries fail, send to 'market-prices-dlt'
+        enabled: true
+        max-attempts: 3
+        destinations:
+          market-prices: price-materializer-dlt
+    default: # This applies to all @KafkaListener beans in this service
+      auto:
+        offset:
+          reset: earliest
+datasources:
+  default:
+    url: ${JDBC_URL:`jdbc:postgresql://localhost:5432/stock_alerts`}
+    username: ${JDBC_USER}
+    password: ${JDBC_PASSWORD}
+    driverClassName: org.postgresql.Driver
+jpa:
+  default:
+    properties:
+      hibernate:
+        hbm2ddl:
+          auto: ${HIBERNATE_HBM2DDL_AUTO:none}
+        show_sql: false
+        format_sql: false
+redis:
+  uri: ${REDIS_URI:`redis://localhost:6379`}
+outbox:
+  relay:
+    delay: ${OUTBOX_RELAY_DELAY:1000}
+endpoints:
+  all:
+    path: /management
+    enabled: true
+  prometheus:
+    enabled: true
+    sensitive: false # Allows Prometheus to scrape without authentication
+  health:
+    enabled: true
+    sensitive: false
+    details-visible: ANONYMOUS # This will let you see WHICH service is DOWN in the logs
+    discovery:
+      enabled: false # Don't let discovery status kill the health check

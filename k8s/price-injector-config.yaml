@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: price-injector-config
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "host.minikube.internal:9095"
+  MARKET_SIMULATOR_DELAY: "2000"

@@ -1,0 +1,47 @@
+micronaut:
+  server:
+    port: 8083
+    netty:
+      # Use a small number of physical threads for the network "plumbing"
+      worker:
+        threads: 8
+    context-path: /v1
+  application:
+    name: market-data-service
+  executors:
+    io:
+      type: THREAD_PER_TASK
+      virtual: true
+  openapi:
+    views:
+      swagger-ui.enabled: true
+  router:
+    static-resources:
+      swagger:
+        paths: classpath:META-INF/swagger
+        mapping: /swagger/**
+      swagger-ui:
+        paths: classpath:META-INF/swagger/views/swagger-ui
+        mapping: /swagger-ui/**
+  metrics:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        descriptions: true
+        step: PT1M
+  health:
+    monitor:
+      enabled: false
+redis:
+  uri: ${REDIS_URI:`redis://localhost:6379`}
+endpoints:
+  all:
+    path: /management
+    enabled: true
+  prometheus:
+    enabled: true
+    sensitive: false # Allows Prometheus to scrape without authentication
+  health:
+    enabled: true
+    sensitive: false

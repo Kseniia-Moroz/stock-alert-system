@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-engine-service
+spec:
+  selector:
+    app: alert-engine
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-engine
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-engine
+  template:
+    metadata:
+      labels:
+        app: alert-engine
+    spec:
+      volumes:
+        - name: migration-scripts
+          configMap:
+            name: alert-engine-migrations
+      # --- INIT CONTAINER: Runs once per Pod start, but logic is idempotent ---
+      initContainers:
+        - name: db-migrator
+          image: flyway/flyway:10-alpine
+          imagePullPolicy: IfNotPresent
+          args:
+            - -url=jdbc:postgresql://host.minikube.internal:5432/stock_alerts
+            - -user=$(JDBC_USER)
+            - -password=$(JDBC_PASSWORD)
+            - -baselineOnMigrate=true
+            - migrate
+          env:
+            - name: JDBC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: alert-engine-secret
+                  key: JDBC_USER
+            - name: JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: alert-engine-secret
+                  key: JDBC_PASSWORD
+          volumeMounts:
+            - name: migration-scripts
+              mountPath: /flyway/sql # Flyway looks here by default
+      containers:
+        - name: alert-engine
+          image: alert-engine:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: HIBERNATE_HBM2DDL_AUTO
+              value: "none"
+            - name: INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # ConfigMap values
+            - name: JDBC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: alert-engine-config
+                  key: JDBC_URL
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: alert-engine-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            # Secret values
+            - name: JDBC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: alert-engine-secret
+                  key: JDBC_USER
+            - name: JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: alert-engine-secret
+                  key: JDBC_PASSWORD
+            - name: REDIS_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: alert-engine-config
+                  key: REDIS_URI
+            - name: OUTBOX_RELAY_DELAY
+              valueFrom:
+                configMapKeyRef:
+                  name: alert-engine-config
+                  key: OUTBOX_RELAY_DELAY
+          livenessProbe:
+            httpGet:
+              path: /v1/management/health
+              port: 8082
+            initialDelaySeconds: 30
+            failureThreshold: 3
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /v1/management/health
+              port: 8082
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
