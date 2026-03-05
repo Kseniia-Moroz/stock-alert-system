@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.kmoroz.stockalert.alert.engine.OutboxRelay.EVENTS_NUMBER_LIMIT;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,15 +41,16 @@ class OutboxRelayTest {
 
     @Test
     void publishEvents_shouldProcessLockedEvents() {
-        OutboxEvent event = new OutboxEvent();
-        event.setId(UUID.randomUUID());
-        event.setVersion(0L);
-        event.setAggregateId("user-123");
-        event.setCorrelationId(UUID.randomUUID().toString());
-        event.setType("ALERT_TRIGGERED");
-        event.setPayload("payload-json");
+        OutboxEvent event = OutboxEvent.builder()
+                .id(UUID.randomUUID())
+                .version(0L)
+                .aggregateId("user-123")
+                .correlationId(UUID.randomUUID().toString())
+                .type("ALERT-TRIGGERED")
+                .payload("payload-json")
+                .build();
 
-        when(repository.lockAndFetch(eq(instanceId), any(Instant.class), any(Instant.class), eq(OutboxRelay.EVENTS_NUMBER_LIMIT)))
+        when(repository.lockAndFetch(eq(instanceId), any(Instant.class), any(Instant.class), eq(EVENTS_NUMBER_LIMIT)))
                 .thenReturn(List.of(event));
 
         relay.publishEvents();
@@ -62,7 +64,7 @@ class OutboxRelayTest {
 
     @Test
     void publishEvents_shouldHandleEmptyWorkload() {
-        when(repository.lockAndFetch(eq(instanceId), any(Instant.class), any(Instant.class), eq(OutboxRelay.EVENTS_NUMBER_LIMIT)))
+        when(repository.lockAndFetch(eq(instanceId), any(Instant.class), any(Instant.class), eq(EVENTS_NUMBER_LIMIT)))
                 .thenReturn(List.of());
 
         relay.publishEvents();

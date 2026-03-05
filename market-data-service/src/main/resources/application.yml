@@ -2,7 +2,6 @@ micronaut:
   server:
     port: 8083
     netty:
-      # Use a small number of physical threads for the network "plumbing"
       worker:
         threads: 8
     context-path: /v1
@@ -41,7 +40,7 @@ endpoints:
     enabled: true
   prometheus:
     enabled: true
-    sensitive: false # Allows Prometheus to scrape without authentication
+    sensitive: false
   health:
     enabled: true
     sensitive: false

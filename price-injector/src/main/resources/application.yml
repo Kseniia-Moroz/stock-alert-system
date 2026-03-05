@@ -33,10 +33,10 @@ endpoints:
     enabled: true
   prometheus:
     enabled: true
-    sensitive: false # Allows Prometheus to scrape without authentication
+    sensitive: false
   health:
     enabled: true
     sensitive: false
-    details-visible: ANONYMOUS # This will let you see WHICH service is DOWN in the logs
+    details-visible: ANONYMOUS
     discovery:
-      enabled: false # Don't let discovery status kill the health check
+      enabled: false

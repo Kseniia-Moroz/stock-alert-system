@@ -19,9 +19,7 @@ public interface AlertRepository extends JpaRepository<Alert, UUID> {
             "AND a.status = 'PENDING' " +
             "AND ((a.condition = 'ABOVE' AND a.targetPrice <= :currentPrice) " +
             "  OR (a.condition = 'BELOW' AND a.targetPrice >= :currentPrice))")
-    List<Alert> findTriggeredAlerts(String symbol, BigDecimal currentPrice);
+    List<Alert> findPendingAlerts(String symbol, BigDecimal currentPrice);
 
-    // For the User's History Page
-    // Micronaut automatically handles the SQL LIMIT and OFFSET
     Page<Alert> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, AlertStatus status, Pageable pageable);
 }

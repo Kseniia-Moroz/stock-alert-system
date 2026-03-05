@@ -10,6 +10,8 @@ import java.util.UUID;
 @Repository
 public interface ProcessedEventRepository extends JpaRepository<ProcessedEvent, UUID> {
 
-    @Query(value = "INSERT INTO processed_events(event_id, consumer_group, processed_at) VALUES (:eventId, :consumerGroup, NOW()) ON CONFLICT DO NOTHING", nativeQuery = true)
+    @Query(value = "INSERT INTO processed_events(event_id, consumer_group, processed_at) " +
+            "VALUES (:eventId, :consumerGroup, NOW()) ON CONFLICT DO NOTHING",
+            nativeQuery = true)
     int tryInsert(UUID eventId, String consumerGroup);
 }

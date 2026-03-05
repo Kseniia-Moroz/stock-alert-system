@@ -41,20 +41,27 @@ class AlertProcessorTest {
 
     private MeterRegistry meterRegistry;
 
-    private AlertProcessor alertProcessor;
+    private PriceAlertService priceAlertService;
 
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
-        alertProcessor = new AlertProcessor(alertRepository, outboxRepository, meterRegistry);
+        priceAlertService = new PriceAlertService(alertRepository, outboxRepository, meterRegistry);
     }
 
     @Test
     void process_shouldDoNothing_whenNoAlertsTriggered() {
-        PriceUpdateDto priceUpdate = new PriceUpdateDto(UUID.randomUUID(), "AAPL", new BigDecimal("150.00"), Instant.now());
-        when(alertRepository.findTriggeredAlerts("AAPL", new BigDecimal("150.00"))).thenReturn(Collections.emptyList());
+        PriceUpdateDto priceUpdate = PriceUpdateDto.builder()
+                .eventId(UUID.randomUUID())
+                .symbol("AAPL")
+                .price(new BigDecimal("150.00"))
+                .timestamp(Instant.now())
+                .build();
 
-        alertProcessor.process(priceUpdate);
+        when(alertRepository.findPendingAlerts("AAPL", new BigDecimal("150.00")))
+                .thenReturn(Collections.emptyList());
+
+        priceAlertService.process(priceUpdate);
 
         verify(alertRepository, never()).saveAll(anyList());
         verify(outboxRepository, never()).saveAll(anyList());
@@ -64,20 +71,25 @@ class AlertProcessorTest {
     void process_shouldTriggerAlertsAndCreateOutboxEvents() {
         String symbol = "TSLA";
         BigDecimal price = new BigDecimal("410.00");
-        PriceUpdateDto priceUpdate = new PriceUpdateDto(UUID.randomUUID(), symbol, price, Instant.now());
+        PriceUpdateDto priceUpdate = PriceUpdateDto.builder()
+                .eventId(UUID.randomUUID())
+                .symbol(symbol)
+                .price(price)
+                .timestamp(Instant.now())
+                .build();
 
-        Alert alert = new Alert();
-        alert.setId(UUID.randomUUID());
-        alert.setUserId("user-1");
-        alert.setSymbol(symbol);
-        alert.setTargetPrice(new BigDecimal("400.00"));
-        alert.setCondition(AlertCondition.ABOVE);
-        alert.setStatus(AlertStatus.PENDING);
+        Alert alert = Alert.builder()
+                .id(UUID.randomUUID())
+                .userId("user-1")
+                .symbol(symbol)
+                .targetPrice(new BigDecimal("400.00"))
+                .condition(AlertCondition.ABOVE)
+                .status(AlertStatus.PENDING)
+                .build();
 
-        when(alertRepository.findTriggeredAlerts(symbol, price)).thenReturn(List.of(alert));
+        when(alertRepository.findPendingAlerts(symbol, price)).thenReturn(List.of(alert));
 
-
-        alertProcessor.process(priceUpdate);
+        priceAlertService.process(priceUpdate);
 
         // Verify Alert was updated to TRIGGERED
         ArgumentCaptor<List<Alert>> alertCaptor = ArgumentCaptor.forClass(List.class);
@@ -98,18 +110,24 @@ class AlertProcessorTest {
     void process_shouldHandleBelowConditionCorrectly() {
         String symbol = "ORCL";
         BigDecimal price = new BigDecimal("140.00");
-        PriceUpdateDto priceUpdate = new PriceUpdateDto(UUID.randomUUID(), symbol, price, Instant.now());
+        PriceUpdateDto priceUpdate = PriceUpdateDto.builder()
+                .eventId(UUID.randomUUID())
+                .symbol(symbol)
+                .price(price)
+                .timestamp(Instant.now())
+                .build();
 
-        Alert alert = new Alert();
-        alert.setUserId("user-2");
-        alert.setSymbol(symbol);
-        alert.setTargetPrice(new BigDecimal("150.00"));
-        alert.setCondition(AlertCondition.BELOW);
-        alert.setStatus(AlertStatus.PENDING);
+        Alert alert = Alert.builder()
+                .userId("user-2")
+                .symbol(symbol)
+                .targetPrice(new BigDecimal("150.00"))
+                .condition(AlertCondition.BELOW)
+                .status(AlertStatus.PENDING)
+                .build();
 
-        when(alertRepository.findTriggeredAlerts(symbol, price)).thenReturn(List.of(alert));
+        when(alertRepository.findPendingAlerts(symbol, price)).thenReturn(List.of(alert));
 
-        alertProcessor.process(priceUpdate);
+        priceAlertService.process(priceUpdate);
 
         ArgumentCaptor<List<OutboxEvent>> outboxCaptor = ArgumentCaptor.forClass(List.class);
         verify(outboxRepository).saveAll(outboxCaptor.capture());

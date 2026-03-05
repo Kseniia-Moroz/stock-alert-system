@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.kmoroz.stockalert.common.enums.AlertStatus.TRIGGERED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,7 +43,12 @@ public class AlertServiceTest {
 
     @Test
     void createAlert_savesAlertAndReturnsId() {
-        AlertSaveDto dto = new AlertSaveDto("user1", "AAPL", new BigDecimal("150.00"), AlertCondition.ABOVE);
+        AlertSaveDto dto = AlertSaveDto.builder()
+                .userId("user1")
+                .symbol("AAPL")
+                .targetPrice(new BigDecimal("150.00"))
+                .condition(AlertCondition.ABOVE)
+                .build();
         UUID expectedId = UUID.randomUUID();
         
         Alert savedAlert = new Alert();
@@ -61,6 +67,7 @@ public class AlertServiceTest {
         assertEquals("AAPL", capturedAlert.getSymbol());
         assertEquals(new BigDecimal("150.00"), capturedAlert.getTargetPrice());
         assertEquals(AlertCondition.ABOVE, capturedAlert.getCondition());
+        assertEquals(AlertStatus.PENDING, capturedAlert.getStatus());
     }
 
     @Test
@@ -68,17 +75,18 @@ public class AlertServiceTest {
         String userId = "user1";
         Pageable pageable = Pageable.from(0, 10);
         
-        Alert alert = new Alert();
-        alert.setId(UUID.randomUUID());
-        alert.setUserId(userId);
-        alert.setSymbol("TSLA");
-        alert.setTargetPrice(new BigDecimal("200.00"));
-        alert.setCondition(AlertCondition.BELOW);
-        alert.setStatus(AlertStatus.TRIGGERED);
-        alert.setCreatedAt(Instant.now());
+        Alert alert = Alert.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .symbol("TSLA")
+                .targetPrice(new BigDecimal("200.00"))
+                .condition(AlertCondition.BELOW)
+                .status(TRIGGERED)
+                .createdAt(Instant.now())
+                .build();
 
         Page<Alert> alertPage = Page.of(List.of(alert), pageable, 1);
-        when(alertRepository.findByUserIdAndStatusOrderByCreatedAtDesc(eq(userId), eq(AlertStatus.TRIGGERED), any(Pageable.class)))
+        when(alertRepository.findByUserIdAndStatusOrderByCreatedAtDesc(eq(userId), eq(TRIGGERED), any(Pageable.class)))
                 .thenReturn(alertPage);
 
         Page<AlertDto> result = alertService.getAlertHistory(userId, pageable);
@@ -92,6 +100,6 @@ public class AlertServiceTest {
         assertEquals(alert.getTargetPrice(), dto.targetPrice());
         assertEquals(alert.getCondition(), dto.condition());
         
-        verify(alertRepository).findByUserIdAndStatusOrderByCreatedAtDesc(userId, AlertStatus.TRIGGERED, pageable);
+        verify(alertRepository).findByUserIdAndStatusOrderByCreatedAtDesc(userId, TRIGGERED, pageable);
     }
 }

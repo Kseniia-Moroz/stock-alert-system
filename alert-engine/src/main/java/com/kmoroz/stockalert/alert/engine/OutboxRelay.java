@@ -16,6 +16,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Periodically relays events from the database outbox table to the Kafka notification topic.
+ *
+ * This class implements the Transactional Outbox pattern, ensuring that event notifications are
+ * reliably delivered to Kafka. It uses a {@link ScheduledExecutorService} backed by Java 21
+ * Virtual Threads to periodically poll the database for pending {@link OutboxEvent} entries,
+ * publish them via {@link NotificationProducer}, and mark them as processed.
+ *
+ * It supports high availability and prevents duplicate processing by using an optimistic locking
+ * mechanism with an instance ID and timestamps.
+ *
+ * @author kmoroz
+ */
 @Singleton
 @Slf4j
 public class OutboxRelay {
@@ -27,6 +40,14 @@ public class OutboxRelay {
     private final long delayMs;
     private final ScheduledExecutorService scheduler;
 
+    /**
+     * Constructs a new OutboxRelay.
+     *
+     * @param repository the repository used for fetching and updating outbox events
+     * @param producer the producer used to send notifications to Kafka
+     * @param instanceId a unique identifier for this relay instance (e.g., pod name in K8s)
+     * @param delayMs the fixed delay in milliseconds between relay iterations
+     */
     public OutboxRelay(OutboxRepository repository, NotificationProducer producer,
                        @Value("${INSTANCE_ID:local-instance}") String instanceId,
                        @Value("${outbox.relay.delay:1000}") long delayMs) {
@@ -34,19 +55,16 @@ public class OutboxRelay {
         this.producer = producer;
         this.instanceId = instanceId;
         this.delayMs = delayMs;
-
-        // Java 21: Using a scheduled executor that spawns Virtual Threads
-        // if you want, but for a single recurring task, a single-threaded
-        // scheduler is safer and more predictable.
         this.scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     }
 
+    /**
+     * Initializes and starts the relay scheduler.
+     * Invoked automatically by Micronaut after the bean's construction.
+     */
     @PostConstruct
     public void startRelay() {
         log.info("Starting Native Java OutboxRelay for instance {} with delay {}ms", instanceId, delayMs);
-
-        // scheduleWithFixedDelay ensures the next execution starts only
-        // AFTER the previous one finishes (preventing overlapping runs).
         scheduler.scheduleWithFixedDelay(
                 this::publishEvents,
                 0,
@@ -55,39 +73,45 @@ public class OutboxRelay {
         );
     }
 
+    /**
+     * Executes a single iteration of the outbox relay.
+     *
+     * This method:
+     * 1. Locks and fetches a batch of pending or stale events from the repository.
+     * 2. Iterates over the batch and publishes each event's payload to Kafka.
+     * 3. Marks each successfully published event as processed in the database.
+     *
+     * This method is {@link Transactional} to ensure database updates are committed correctly.
+     */
     @Transactional
-    void publishEvents() {
+    public void publishEvents() {
         Instant now = Instant.now();
         Instant staleBefore = now.minus(1, ChronoUnit.MINUTES);
 
-        // Atomically claim exclusive rights to these 100 events
-        List<OutboxEvent> myWork = repository.lockAndFetch(instanceId, now, staleBefore, EVENTS_NUMBER_LIMIT);
+        List<OutboxEvent> events = repository.lockAndFetch(instanceId, now, staleBefore, EVENTS_NUMBER_LIMIT);
 
-        if (myWork.isEmpty()) return;
+        if (events.isEmpty()) return;
 
-        log.info("Pod {} claimed {} events for relay", instanceId, myWork.size());
+        log.info("Pod {} claimed {} events for relay", instanceId, events.size());
 
-        for (OutboxEvent event : myWork) {
+        for (OutboxEvent event : events) {
             try {
-                // We are the exclusive owner of this row now
-                //relay to kafka
                 producer.sendNotification(event.getAggregateId(), event.getPayload());
 
-                // update local state
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());
-                // No version collision here because we locked the row in the DB
                 repository.update(event);
 
                 log.info("Relayed event {} via CorrelationID: {}", event.getAggregateId(), event.getCorrelationId());
             } catch (Exception e) {
                 log.error("Failed relay for event {}: {}", event.getId(), e.getMessage());
-                // If it fails, the row remains locked by us until 'staleBefore' passes,
-                // protecting other pods from trying the same failing record immediately.
             }
         }
     }
 
+    /**
+     * Shuts down the relay scheduler gracefully before the bean is destroyed.
+     */
     @PreDestroy
     public void stopRelay() {
         log.info("Shutting down OutboxRelay scheduler...");

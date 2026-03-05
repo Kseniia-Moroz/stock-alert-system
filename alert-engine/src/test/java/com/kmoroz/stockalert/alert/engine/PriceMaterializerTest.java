@@ -1,10 +1,9 @@
 package com.kmoroz.stockalert.alert.engine;
 
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
-import io.micronaut.json.JsonMapper;
 import com.kmoroz.stockalert.common.AlertSystemConstants;
 import com.kmoroz.stockalert.common.dto.PriceUpdateDto;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,9 +25,6 @@ class PriceMaterializerTest {
     private StatefulRedisConnection<String, String> connection;
 
     @Mock
-    private JsonMapper jsonMapper;
-
-    @Mock
     private RedisCommands<String, String> syncCommands;
 
     private PriceMaterializer priceMaterializer;
@@ -36,16 +32,18 @@ class PriceMaterializerTest {
     @BeforeEach
     void setUp() {
         when(connection.sync()).thenReturn(syncCommands);
-        priceMaterializer = new PriceMaterializer(connection,  jsonMapper);
+        priceMaterializer = new PriceMaterializer(connection);
     }
 
     @Test
     void onPriceTick_shouldSetPriceInRedisWithExpiration() {
-        UUID eventId = UUID.randomUUID();
         String symbol = "AAPL";
-        BigDecimal price = new BigDecimal("150.50");
-        Instant timestamp = Instant.now();
-        PriceUpdateDto priceUpdate = new PriceUpdateDto(eventId, symbol, price, timestamp);
+        PriceUpdateDto priceUpdate = PriceUpdateDto.builder()
+                .eventId(UUID.randomUUID())
+                .symbol(symbol)
+                .price(new BigDecimal("150.50"))
+                .timestamp(Instant.now())
+                .build();
 
         String expectedKey = AlertSystemConstants.STOCK_PRICE + symbol;
         String expectedValue = "150.50";

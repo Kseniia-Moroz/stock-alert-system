@@ -17,6 +17,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.UUID.randomUUID;
+
+/**
+ * Simulates real-time stock market price movements for a predefined set of stock symbols.
+ *
+ * This class is a Micronaut {@link Context} bean, meaning it is initialized and started
+ * as soon as the application context is ready. It uses a {@link ScheduledExecutorService}
+ * backed by Java 21 Virtual Threads to periodically update prices and broadcast them via {@link PriceProducer}.
+ *
+ * @author kmoroz
+ */
 @Context
 @Slf4j
 public class MarketPriceSimulator {
@@ -41,12 +52,21 @@ public class MarketPriceSimulator {
         );
     }
 
+    /**
+     * Initializes and starts the price simulation scheduler.
+     * Invoked automatically by Micronaut after the bean's construction.
+     */
     @PostConstruct
     public void start() {
-        log.info("Starting Price Simulator with {}ms delay on Virtual Thread", delayMs);
+        log.info("Starting Market Price Simulator with {}ms delay", delayMs);
         scheduler.scheduleWithFixedDelay(this::simulatePrices, 0, delayMs, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Executes a single iteration of the price simulation.
+     * For each tracked stock symbol, it applies a random price movement,
+     * updates the internal state, and broadcasts the new price.
+     */
      void simulatePrices() {
         try {
             prices.forEach((symbol, currentPrice) -> {
@@ -55,10 +75,14 @@ public class MarketPriceSimulator {
                 // Update the map for the next iteration
                 prices.put(symbol, newPrice);
 
-                PriceUpdateDto update = new PriceUpdateDto(java.util.UUID.randomUUID(), symbol, newPrice, Instant.now());
+                PriceUpdateDto update = PriceUpdateDto.builder()
+                        .eventId(randomUUID())
+                        .symbol(symbol)
+                        .price(newPrice)
+                        .timestamp(Instant.now())
+                        .build();
                 log.info(">>> Market Move: {} is now ${}", symbol, newPrice);
-
-                // Send to Kafka (Transactional Outbox logic should be here)
+                
                 log.info(">>> Sending Price Update: {} | CorrelationID: {}", update, update.eventId());
                 priceProducer.sendPrice(symbol, update);
             });
@@ -67,20 +91,31 @@ public class MarketPriceSimulator {
         }
     }
 
+    /**
+     * Calculates a new price by applying a random percentage move (-1.5% to +1.5%) to the current price.
+     *
+     * @param price the current market price
+     * @return the newly calculated price, scaled to 2 decimal places
+     */
     private BigDecimal applyRandomMove(BigDecimal price) {
-        // ThreadLocalRandom is better for performance and modern Java patterns
-        // This generates a number between -0.015 (-1.5%) and 0.015 (+1.5%)
         double percent = ThreadLocalRandom.current().nextDouble(-0.015, 0.015);
-
-        // Price * (1 + percent)
-        // Example: 400 * (1 + 0.01) = 404
         return price.multiply(BigDecimal.valueOf(1 + percent))
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Shuts down the simulation scheduler gracefully before the bean is destroyed.
+     */
     @PreDestroy
-    public void stop() {
-        log.info("Shutting down Price Simulator...");
+    public void stopRelay() {
+        log.info("Shutting down OutboxRelay scheduler...");
         scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+        }
     }
 }

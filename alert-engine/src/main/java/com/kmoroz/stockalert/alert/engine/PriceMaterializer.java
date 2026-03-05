@@ -15,20 +15,41 @@ import org.slf4j.MDC;
 import static com.kmoroz.stockalert.common.AlertSystemConstants.CORRELATION_ID_KEY;
 import static com.kmoroz.stockalert.common.AlertSystemConstants.STOCK_PRICE;
 
+/**
+ * Consumes real-time stock price updates from Kafka and materializes them into a Redis data store.
+ *
+ * This class is a Micronaut {@link KafkaListener} and is responsible for maintaining the latest
+ * price for each stock symbol in Redis. This allows other services to quickly retrieve current
+ * prices without querying Kafka or the database directly. It uses Java 21 Virtual Threads
+ * for efficient I/O processing.
+ *
+ * @author kmoroz
+ */
 @KafkaListener(groupId = "price-materializer")
 @Slf4j
 public class PriceMaterializer {
 
     private final StatefulRedisConnection<String, String> connection;
-    private final JsonMapper jsonMapper;
 
-    public PriceMaterializer(StatefulRedisConnection<String, String> connection, JsonMapper jsonMapper) {
+    public PriceMaterializer(StatefulRedisConnection<String, String> connection) {
         this.connection = connection;
-        this.jsonMapper = jsonMapper;
     }
 
+    /**
+     * Receives a single stock price update and materializes it into Redis.
+     *
+     * This method:
+     * 1. Sets the correlation ID in the {@link MDC} for logging.
+     * 2. Formats a Redis key using the stock symbol.
+     * 3. Sets the price value in Redis with a 60-second expiration (TTL).
+     *
+     * The method is {@link Retryable} to handle transient failures and runs on
+     * Java 21 Virtual Threads via {@link ExecuteOn}.
+     *
+     * @param priceUpdate the price update data received from Kafka
+     */
     @Topic("market-prices")
-    @Retryable(attempts = "3", delay = "500ms") // Short retry for Redis
+    @Retryable(attempts = "3", delay = "500ms")
     @ExecuteOn(TaskExecutors.IO)
     public void onPriceTick(PriceUpdateDto priceUpdate) {
         try (var ignored = MDC.putCloseable(CORRELATION_ID_KEY, priceUpdate.eventId().toString())) {
@@ -37,7 +58,6 @@ public class PriceMaterializer {
             String value = String.valueOf(priceUpdate.price());
 
             RedisCommands commands = connection.sync();
-            // 60 seconds is usually safe for a real-time feed
             commands.setex(key, 60, value);
         }
     }

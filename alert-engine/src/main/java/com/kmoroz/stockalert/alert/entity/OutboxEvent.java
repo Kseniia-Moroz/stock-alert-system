@@ -3,25 +3,30 @@ package com.kmoroz.stockalert.alert.entity;
 
 import io.micronaut.data.annotation.DateCreated;
 import io.micronaut.serde.annotation.Serdeable;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.DynamicUpdate;
-import org.hibernate.annotations.OptimisticLockType;
-import org.hibernate.annotations.OptimisticLocking;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Serdeable
 @Entity
-@DynamicUpdate
-@OptimisticLocking(type = OptimisticLockType.DIRTY) // Track changes to any field
 @Table(name = "outbox_events")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class OutboxEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -54,11 +59,4 @@ public class OutboxEvent {
     @DateCreated
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
-
-    public OutboxEvent(String aggregateId, String correlationId, String type, String payload) {
-        this.aggregateId = aggregateId;
-        this.correlationId = correlationId;
-        this.type = type;
-        this.payload = payload;
-    }
 }

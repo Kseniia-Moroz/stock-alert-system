@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 class PriceConsumerTest {
 
     @Mock
-    private AlertProcessor alertProcessor;
+    private PriceAlertService priceAlertService;
 
     @Mock
     private ProcessedEventRepository processedEventRepository;
@@ -31,32 +31,42 @@ class PriceConsumerTest {
 
     @BeforeEach
     void setUp() {
-        priceConsumer = new PriceConsumer(alertProcessor, processedEventRepository);
+        priceConsumer = new PriceConsumer(priceAlertService, processedEventRepository);
     }
 
     @Test
     void receive_shouldProcessAlerts_whenEventIsNew() {
         UUID eventId = UUID.randomUUID();
-        PriceUpdateDto update = new PriceUpdateDto(eventId, "AAPL", new BigDecimal("150.00"), Instant.now());
-        
+        PriceUpdateDto update = PriceUpdateDto.builder()
+                .eventId(eventId)
+                .symbol("AAPL")
+                .price(new BigDecimal("150.00"))
+                .timestamp(Instant.now())
+                .build();
+
         when(processedEventRepository.tryInsert(eq(eventId), eq("alert-engine"))).thenReturn(1);
 
         priceConsumer.receive(update);
 
         verify(processedEventRepository).tryInsert(eventId, "alert-engine");
-        verify(alertProcessor).process(update);
+        verify(priceAlertService).process(update);
     }
 
     @Test
     void receive_shouldIgnoreEvent_whenEventIsDuplicate() {
         UUID eventId = UUID.randomUUID();
-        PriceUpdateDto update = new PriceUpdateDto(eventId, "AAPL", new BigDecimal("150.00"), Instant.now());
+        PriceUpdateDto update = PriceUpdateDto.builder()
+                .eventId(eventId)
+                .symbol("AAPL")
+                .price(new BigDecimal("150.00"))
+                .timestamp(Instant.now())
+                .build();
         
         when(processedEventRepository.tryInsert(eq(eventId), eq("alert-engine"))).thenReturn(0);
 
         priceConsumer.receive(update);
 
         verify(processedEventRepository).tryInsert(eventId, "alert-engine");
-        verify(alertProcessor, never()).process(any());
+        verify(priceAlertService, never()).process(any());
     }
 }

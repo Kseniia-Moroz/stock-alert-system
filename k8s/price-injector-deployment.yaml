@@ -17,7 +17,7 @@ metadata:
 spec:
   replicas: 1 # Strictly 1 pod
   strategy:
-    type: Recreate # Kills the old pod before starting the new one to avoid double injection
+    type: Recreate
   selector:
     matchLabels:
       app: price-injector
@@ -43,6 +43,13 @@ spec:
                 configMapKeyRef:
                   name: price-injector-config
                   key: MARKET_SIMULATOR_DELAY
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           livenessProbe:
             httpGet:
               path: /management/health

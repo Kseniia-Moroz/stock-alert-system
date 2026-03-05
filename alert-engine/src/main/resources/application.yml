@@ -2,7 +2,6 @@ micronaut:
   server:
     port: 8082
     netty:
-      # Use a small number of physical threads for the network "plumbing"
       worker:
         threads: 8
     context-path: /v1
@@ -52,7 +51,7 @@ kafka:
         max-attempts: 3
         destinations:
           market-prices: price-materializer-dlt
-    default: # This applies to all @KafkaListener beans in this service
+    default:
       auto:
         offset:
           reset: earliest
@@ -81,10 +80,10 @@ endpoints:
     enabled: true
   prometheus:
     enabled: true
-    sensitive: false # Allows Prometheus to scrape without authentication
+    sensitive: false
   health:
     enabled: true
     sensitive: false
-    details-visible: ANONYMOUS # This will let you see WHICH service is DOWN in the logs
+    details-visible: ANONYMOUS
     discovery:
-      enabled: false # Don't let discovery status kill the health check
+      enabled: false
