@@ -3,11 +3,10 @@
 
 A high-performance microservices ecosystem built with **Java 21**, **Micronaut 4**, and **Kafka**, demonstrating modern architectural patterns for reliability and scalability.
 
-Overview
---------
+## 🚀 Overview
 The **Stock Alert System** allows users to set price alerts (e.g., "Notify me when TSLA goes above $400"). It solves the "Dual Write" problem (writing to a database and sending a message to Kafka) using the **Transactional Outbox Pattern**, ensuring data consistency even under failure.
 
-Key Features
+💡 Key Features
 ------------
 *   **Transactional Outbox Pattern**: Guaranteed event delivery to Kafka without distributed transactions.
 *   **High-Performance Concurrency**: Leveraging Java 21 Virtual Threads (Project Loom) for non-blocking I/O across all services.
@@ -15,7 +14,7 @@ Key Features
 *   **Real-Time Materialization**: Market prices are materialized from Kafka into Redis for sub-millisecond lookups.
 *   **Observability**: Integrated with Micrometer, Prometheus, and Health Checks, events are tracked with Correlation ID.
 
-Architecture
+🏗 Architecture
 ------------
 The system consists of four main modules:
 
@@ -68,7 +67,7 @@ graph TD
     Client -- "GET /prices" --> MDS
 ```
 
-Tech Stack
+🛠 Tech Stack
 ----------
 *   **Runtime**: Java 21 (Virtual Threads)
 *   **Framework**: Micronaut 4.x
@@ -80,8 +79,7 @@ Tech Stack
 *   **Testing**: JUnit 5, Mockito, Micronaut Test
 *   **Deployment**: Docker Compose, Kubernetes, Minikube
 
-Getting Started
----------------
+## 🏁 Getting Started
 
 ### Prerequisites
 *   Docker and Docker Compose
@@ -145,8 +143,7 @@ To deploy the system in a local Kubernetes cluster:
     ```
     Note: The K8s setup is configured to connect to infrastructure services (Kafka, Postgres, Redis) running on the host machine via `host.minikube.internal`. Ensure Docker Compose is running.
 
-Scaling
--------
+## ⚖️ Scaling
 The system is designed for horizontal scalability, specifically for the core processing and data retrieval components:
 
 *   **Alert Engine**: Can be scaled to multiple pods.
@@ -161,8 +158,7 @@ kubectl scale deployment alert-engine --replicas=3
 kubectl scale deployment market-data-service --replicas=3
 ```
 
-API Documentation
------------------
+## 📖 API Documentation
 Each service provides **OpenAPI** (Swagger UI) for API exploration:
 *   **Alert Engine**: `http://localhost:8082/v1/swagger-ui`
 *   **Market Data Service**: `http://localhost:8083/v1/swagger-ui`
@@ -175,8 +171,7 @@ Each service provides **OpenAPI** (Swagger UI) for API exploration:
 | Alert Engine | `GET` | `/<version>/alerts/history/{userId}` | Get triggered alert history | N/A |
 | Market Data Service | `GET` | `/<version>/prices/{symbol}`         | Get latest stock price from Redis | N/A |
 
-Monitoring & Observability
---------------------------
+## 🔍 Monitoring & Observability
 *   **Distributed Tracing**: Every event and price update is tracked with a **Correlation ID** (e.g., `eventId` from the `PriceUpdateDto`). This ID is propagated through the system via the **Mapped Diagnostic Context (MDC)** for consistent logging across microservices.
 *   **Metrics**: Available at `/v1/management/prometheus` on each service port.
 *   **Health Checks**: Found at `/v1/management/health`.
